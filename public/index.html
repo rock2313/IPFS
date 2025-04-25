@@ -1,0 +1,190 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Hash Ethereum Storage</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .result-card {
+            display: none;
+            margin-top: 2rem;
+        }
+        .loading {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">File Hash Storage with Ethereum</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                Upload File & Generate Hash
+            </div>
+            <div class="card-body">
+                <form id="uploadForm">
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">Select File</label>
+                        <input class="form-control" type="file" id="fileInput" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="normal-text">Generate Hash & Store</span>
+                        <span class="loading">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            Processing...
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                Retrieve Current Hash
+            </div>
+            <div class="card-body">
+                <button id="getHashBtn" class="btn btn-secondary">
+                    <span class="normal-text">Get Current Hash</span>
+                    <span class="loading">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        Loading...
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card result-card" id="resultCard">
+            <div class="card-header">
+                Result
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h5>File Hash:</h5>
+                    <p id="fileHash" class="font-monospace"></p>
+                </div>
+                <div class="mb-3">
+                    <h5>File Access:</h5>
+                    <p><a id="fileLink" href="#" target="_blank"></a></p>
+                </div>
+                <div class="mb-3" id="txSection">
+                    <h5>Ethereum Transaction:</h5>
+                    <p><a id="etherscanLink" href="#" target="_blank"></a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files[0]) {
+                alert('Please select a file first.');
+                return;
+            }
+
+            // Show loading state
+            const btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.querySelector('.normal-text').style.display = 'none';
+            btn.querySelector('.loading').style.display = 'inline-block';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result, true);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred during the upload.');
+            } finally {
+                // Restore button state
+                btn.disabled = false;
+                btn.querySelector('.normal-text').style.display = 'inline-block';
+                btn.querySelector('.loading').style.display = 'none';
+            }
+        });
+
+        document.getElementById('getHashBtn').addEventListener('click', async function() {
+            // Show loading state
+            this.disabled = true;
+            this.querySelector('.normal-text').style.display = 'none';
+            this.querySelector('.loading').style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/hash');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result, false);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while retrieving the hash.');
+            } finally {
+                // Restore button state
+                this.disabled = false;
+                this.querySelector('.normal-text').style.display = 'inline-block';
+                this.querySelector('.loading').style.display = 'none';
+            }
+        });
+
+        function displayResult(result, showTx) {
+            const resultCard = document.getElementById('resultCard');
+            const fileHash = document.getElementById('fileHash');
+            const fileLink = document.getElementById('fileLink');
+            const txSection = document.getElementById('txSection');
+            const etherscanLink = document.getElementById('etherscanLink');
+            
+            // Show the result card
+            resultCard.style.display = 'block';
+            
+            // Display file hash information
+            fileHash.textContent = result.fileHash || 'No hash stored';
+            
+            if (result.fileUrl) {
+                fileLink.href = result.fileUrl;
+                fileLink.textContent = 'View/Download File';
+            } else {
+                fileLink.href = '#';
+                fileLink.textContent = 'No file available';
+            }
+            
+            // Display transaction info if available
+            if (showTx && result.transactionHash) {
+                txSection.style.display = 'block';
+                etherscanLink.href = `https://sepolia.etherscan.io/tx/${result.transactionHash}`;
+                etherscanLink.textContent = result.transactionHash;
+            } else {
+                txSection.style.display = 'none';
+            }
+            
+            // Scroll to the result
+            resultCard.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
